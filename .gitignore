@@ -109,10 +109,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
-.venv
 env/
-venv/
 ENV/
 env.bak/
 venv.bak/
@@ -140,3 +137,6 @@ dmypy.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 .idea/*
+/dialogRecord.txt
+/dialogRecordBak0.txt
+/dialogRecordBak1.txt
