@@ -1,0 +1,14 @@
+[project]
+name = "AliceBot"
+version = "0.1.0"
+description = "AliceBot"
+readme = "README.md"
+requires-python = ">=3.8, <4.0"
+
+[tool.nonebot]
+adapters = [
+    { name = "RedProtocol", module_name = "nonebot.adapters.red" }
+]
+plugins = []
+plugin_dirs = ["src/plugins"]
+builtin_plugins = []
