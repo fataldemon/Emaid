@@ -91,7 +91,7 @@ async def advanced_painting(event: GroupMessageEvent):
         await advanced_painting_call.send("""格式如下：
     positive prompt: ... ; negative prompt: ... ; seeds: ... (-1时为random); size: height*width; model: model_name; steps:...; cfg:...; denoise:...; sampler: ...
     示例：
-    positive prompt: masterpiece best quality girl; negative prompt: aidxlv05_neg blurry, low contrast, {bad hands, bad feet}; seed: -1; size: 1024*1024; model: animeIllustDiffusion_v052.safetensors;
+    positive prompt: masterpiece best quality girl; negative prompt: aidxlv05_neg blurry, low contrast, {bad hands, bad feet}; seeds: -1; size: 1024*1024; model: animeIllustDiffusion_v052.safetensors;
     steps:30; cfg:7; denoise:1; sampler: euler
     model list: 'abyssorangemix3AOM3_aom3a1b.safetensors', 'animeIllustDiffusion_v052.safetensors', 'artErosAerosATribute_aerosNovae.safetensors', 'chilloutmix_NiPrunedFp32Fix.safetensors', 'furnace1011_furnace11.safetensors', 'furnace34_furnace34.safetensors', 'pastelMixStylizedAnime_pastelMixPrunedFP16.safetensors', 'sdXL_v10VAEFix.safetensors', 'tmndMix_tmndMixPlus.safetensors'""")
     else:
@@ -146,7 +146,7 @@ async def advanced_painting(event: GroupMessageEvent):
             prompt["7"]["inputs"]["text"] = negative_prompt
             prompt["3"]["inputs"]["seed"] = seeds
             prompt["5"]["inputs"]["height"] = height
-            prompt["5"]["inputs"]["height"] = width
+            prompt["5"]["inputs"]["width"] = width
             prompt["4"]["inputs"]["ckpt_name"] = model
             prompt["3"]["inputs"]["steps"] = steps
             prompt["3"]["inputs"]["cfg"] = cfg

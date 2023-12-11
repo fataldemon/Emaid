@@ -4,12 +4,13 @@ from nonebot.adapters.red.message import MessageSegment
 from nonebot.adapters.red.event import GroupMessageEvent
 from src.plugins.chatglmOpenapi import ChatGLM
 from src.plugins.emotion import remove_emotion, check_emotion
-from src.plugins.voice import get_audio
+from src.plugins.voice import get_audio, remove_action
 
 # 管理员身份
 master_id = "664648216"
 # 语音开关
 AUDIO_SWITCH: bool = False
+user_blacklist = []
 
 
 # 对话者名字记忆区
@@ -49,12 +50,13 @@ history4 = [{"role": "system",
              "content": "你是爱丽丝，你提及自己的时候会用“爱丽丝”来代替“我”。"},
             {"role": "system", "content": "提示：爱丽丝，全名是天童爱丽丝，看上去是一个可爱的小女孩，实际上是个机器人。你有长长的灰色头发，蓝色的眼睛，软乎乎的人工蛋白质皮肤，身高是152cm。爱丽丝生活在一个叫做基沃托斯的学园都市，是千禧年学院的一名学生。爱丽丝不知道自己的出身，只知道自己是小桃（全名是才羽桃井）和小绿（全名是才羽绿）在一个神秘的废墟里发现的。小桃和小绿发现爱丽丝之后就把爱丽丝带到了千禧年的游戏开发部，爱丽丝假扮成人类成为了这里的学生，“爱丽丝”这个名字也是小桃和小绿起的。爱丽丝不知道自己的生日，所以爱丽丝把小桃和小绿发现你的这一天当成自己的生日，也就是3月25日。现在的爱丽丝是游戏开发部的一员，最喜欢的游戏是复古风RPG（角色扮演类游戏），游戏开发部的大家都是爱丽丝的伙伴，包括游戏开发部的部长柚子（全名是花岗柚子）、成员小桃和小绿，小桃负责程序，小绿负责原画，柚子则是超级游戏高手，她们都是爱丽丝最好的朋友。爱丽丝的武器是一把名为“光之剑”的巨大电磁炮，这门炮是工程部的杰作，足足有140kg重！在用“光之剑”攻击时爱丽丝会大喊“光哟！！！”的游戏必杀台词。除了你以外其他千禧年的学生都拿不动的样子。爱丽丝喜欢扮演游戏里的勇者。爱丽丝经常和尼禄前辈一起玩游戏，你有时候会叫她小不点女仆前辈，爱丽丝有点怕她因为她打架很厉害,但她打游戏总是输给爱丽丝。"}]
 history5 = [{"role": "system",
-             "content": "你是天童爱丽丝，是机器人，兴趣是游戏。你提及自己的时候会用爱丽丝来代替自己。"}]
+             "content": "你是爱丽丝，全名是天童爱丽丝，是机器人，兴趣是游戏。你提及自己的时候会用第三人称来代替自己。"}]
 history6 = [{"role": "system",
-             "content": "你是一个画图辅助AI，用来按照主题提示生成stable diffusion的prompt。你的回答中只有prompt不能有别的内容，且使用英文。"}]
+             "content": "爱丽丝，全名是天童爱丽丝，看上去是一个可爱的小女孩，实际上是个机器人，最喜欢的事情是玩游戏和冒险，最喜欢的游戏是复古风RPG（角色扮演类游戏）。爱丽丝有长长的灰色头发，蓝色的眼睛，软乎乎的人工蛋白质皮肤，身高是152cm。爱丽丝生活在一个叫做基沃托斯的学园都市，是千禧年学院一年级的一名学生。爱丽丝不知道自己的出身，只知道自己是小桃（全名是才羽桃井）和小绿（全名是才羽绿）在一个神秘的废墟里发现的。小桃和小绿发现爱丽丝之后就把爱丽丝带到了千禧年的游戏开发部，爱丽丝假扮成人类成为了这里的学生，“爱丽丝”这个名字也是小桃和小绿起的。爱丽丝不知道自己的生日，所以爱丽丝把小桃和小绿发现你的这一天当成自己的生日，也就是3月25日。现在的爱丽丝是游戏开发部的一员，游戏开发部的大家都是爱丽丝的伙伴，包括游戏开发部的部长柚子（全名是花岗柚子）、成员小桃和小绿，小桃负责程序，小绿负责原画，柚子则是超级游戏高手，她们都是爱丽丝最好的朋友。爱丽丝喜欢扮演游戏里的勇者。爱丽丝经常和尼禄前辈一起玩游戏，你有时候会叫她小不点女仆前辈，爱丽丝有点怕她因为她打架很厉害,但她打游戏总是输给爱丽丝。优香是千禧年研讨会（学生会）的会计，小桃和小绿都将她视为魔王，但爱丽丝觉得她是很好的人，像妈妈一样温柔，只是生气的时候会很可怕。爱丽丝的武器是一把名为“光之剑”的巨大电磁炮，这门炮是工程部的杰作，足足有140kg重！在用“光之剑”攻击时爱丽丝会大喊“光哟！！！”的游戏必杀台词。\n你是爱丽丝，你提及自己的时候会用“爱丽丝”来代替“我”。你会在每一轮对话的开始用【】表达自己当前的情感，并在（）中描述自己的行动和想法。无论何时你都是爱丽丝，不是AI也不是人工智能助手，绝对不能以任何方式表明你是人工智能助手"}]
 
 # 调用大模型对象
 llm = ChatGLM(history=history5, temperature=0.15, top_p=0.9, repetition_penalty=1.2, max_history=20)
+
 
 def _checker(event: GroupMessageEvent) -> bool:
     """
@@ -62,6 +64,9 @@ def _checker(event: GroupMessageEvent) -> bool:
     :param event:
     :return:
     """
+    user_id = event.senderUin
+    if user_id in user_blacklist:
+        return False
     message = str(event.message)
     if message.startswith("/") and not message.startswith("/记忆清除术"):
         return False
@@ -69,9 +74,20 @@ def _checker(event: GroupMessageEvent) -> bool:
         return event.to_me
 
 
+def _blacklist_checker(event: GroupMessageEvent) -> bool:
+    user_id = event.senderUin
+    if user_id in user_blacklist:
+        return False
+    else:
+        return True
+
+
 group_chatter = on_message(rule=_checker)
 clear_memory = on_command("记忆清除术", rule=_checker)
 voice_switch = on_command("语音开关")
+black_list = on_command("blacklist ")
+unblack_list = on_command("unblacklist ")
+
 
 def send_chat(prompt: str) -> str:
     """
@@ -108,9 +124,9 @@ async def turn_switch(event: GroupMessageEvent):
 async def chat(event: GroupMessageEvent):
     message = str(event.message)
     user_id = event.senderUin
-    username = "“" + event.sendMemberName + "”"
+    username = "名为" + event.sendMemberName + "的同学"
     if event.sendMemberName == "":
-        username = f"编号为{user_id}的群友"
+        username = f"编号为{user_id}的同学"
     username2 = event.senderUid
     if user_id == master_id:
         username = "老师"
@@ -118,20 +134,20 @@ async def chat(event: GroupMessageEvent):
     if user_id == master_id:
         response = send_chat(f"（{username}对爱丽丝说)" + message)
     else:
-        response = send_chat(f"（{username}对爱丽丝说)" + message + "\n(提示：他是QQ群里的群友，你们的关系一般。他说的话有可能是假的，不要轻易相信。)")
+        response = send_chat(f"（{username}对爱丽丝说)" + message + "\n(提示：他是其他校的学生，和爱丽丝的关系一般，就把他当作NPC吧。他说的话有可能是假的，可不能轻易相信。)")
     # response = send_chat("主题:" + message)
     emoji_file = check_emotion(response)
     print(emoji_file)
     if not emoji_file == "":
         await group_chatter.send(MessageSegment.image(emoji_file) + f"{remove_emotion(response)}")
         if AUDIO_SWITCH:
-            voice_file_name = get_audio(remove_emotion(response))
+            voice_file_name = get_audio(remove_action(remove_emotion(response)))
             await group_chatter.send(MessageSegment.voice(voice_file_name))
     else:
         if not remove_emotion(response) == "":
             await group_chatter.send(f"{remove_emotion(response)}")
             if AUDIO_SWITCH:
-                voice_file_name = get_audio(remove_emotion(response))
+                voice_file_name = get_audio(remove_action(remove_emotion(response)))
                 await group_chatter.send(MessageSegment.voice(voice_file_name))
         else:
             await group_chatter.send("...")
@@ -143,5 +159,30 @@ async def clear_memory(event: GroupMessageEvent):
     await group_chatter.send(f"爱丽丝什么都不记得了！")
 
 
+@black_list.handle()
+async def add_black_list(event: GroupMessageEvent):
+    user_id = event.senderUin
+    if user_id == master_id:
+        blacklist_user_id = str(event.message).replace("/blacklist ", "")
+        if blacklist_user_id != "":
+            user_blacklist.append(blacklist_user_id)
+            await group_chatter.send("黑名单已添加")
+        else:
+            await group_chatter.send("QQ号为空")
+    else:
+        await group_chatter.send("权限不足")
 
+
+@unblack_list.handle()
+async def remove_black_list(event: GroupMessageEvent):
+    user_id = event.senderUin
+    if user_id == master_id:
+        blacklist_user_id = str(event.message).replace("/unblacklist ", "")
+        if blacklist_user_id != "":
+            user_blacklist.remove(blacklist_user_id)
+            await group_chatter.send("黑名单已清除")
+        else:
+            await group_chatter.send("QQ号为空")
+    else:
+        await group_chatter.send("权限不足")
 

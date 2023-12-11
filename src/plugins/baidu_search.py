@@ -73,7 +73,7 @@ async def show_page(event: GroupMessageEvent):
     print(url)
     current_time = time.time()
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch()
+        browser = await pw.firefox.launch()
         page = await browser.new_page()
         title = await page.title()
         try:
