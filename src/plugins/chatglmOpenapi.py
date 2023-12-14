@@ -4,6 +4,7 @@ import requests
 import json
 from typing import Optional, List, Dict, Mapping, Any
 import re
+from datetime import datetime
 
 import langchain
 from langchain.llms.base import LLM
@@ -65,7 +66,6 @@ class ChatGLM(LLM):
     top_p: float = 0.7
     repetition_penalty: float = 1.20
     max_history = 28
-    file = "dialogRecord.txt"
     history: Any = []
     #部署大模型服务的url
     url = "http://localhost:8000/v1/chat/completions"
@@ -75,20 +75,31 @@ class ChatGLM(LLM):
         return "chatglm3-6b"
 
     def record_dialog_in_file(self, role: str, content: str):
-        with open(self.file, 'a', encoding='utf-8') as f:
+        current_date = datetime.now()
+        formatted_date = current_date.strftime("%Y-%m-%d")
+        file = f"dialogRecord-{formatted_date}.txt"
+        with open(file, 'a', encoding='utf-8') as f:
             f.write(
                 '''{
                 "role": "'''+role+'''",
                 "content": "'''+content+'''"
             },\n''')
 
-    def _construct_query(self, prompt: str) -> Dict:
+    def _construct_query(self, prompt: str, **kwargs) -> Dict:
         """构造请求体
         """
+        embedding = ""
+        for key, value in kwargs.items():
+            if key == "embedding":
+                embedding = value
         messages = self.history + [{"role": "user", "content": prompt}]
+        if embedding != "":
+            messages_emb = self.history + [{"role": "system", "content": embedding}] + [{"role": "user", "content": prompt}]
+        else:
+            messages_emb = messages
         query = {
             "model": "chatglm3-6b",
-            "messages": messages,
+            "messages": messages_emb,
             "temperature": self.temperature,
             "top_p": self.top_p,
             "repetition_penalty": self.repetition_penalty,
@@ -133,11 +144,15 @@ class ChatGLM(LLM):
             )
         return resp
 
-    def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+    def _call(self, prompt: str, stop: Optional[List[str]] = None, **kwargs) -> str:
         """调用函数
         """
+        embedding = ""
+        for key, value in kwargs.items():
+            if key == "embedding":
+                embedding = value
         # construct query
-        query = self._construct_query(prompt=prompt)
+        query = self._construct_query(prompt=prompt, embedding=embedding)
         self.record_dialog_in_file(role="user", content=prompt)
         # post
         resp = self._post(url=self.url, query=query)

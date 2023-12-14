@@ -44,7 +44,8 @@ def remove_action(line: str) -> str:
     else:
         print(f"有{len(match)+1}段描述动作的语句")
         for i in range(len(match)):
-            line.replace(match[i], "")
+            print(match[i])
+            line = line.replace(match[i], "")
         return line
 
 
