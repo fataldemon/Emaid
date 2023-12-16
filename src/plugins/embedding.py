@@ -9,7 +9,6 @@ import pickle
 
 model = SentenceTransformer('moka-ai/m3e-base')
 
-
 doc_folder = "memory/"
 vector_folder = "memory/vector/"
 master_id = "664648216"
@@ -43,7 +42,7 @@ def generate_vector():
             # sentences = df["sentence"].tolist()
             content += read_as_content(file_name)
         # 按句号分割为数组
-        sentences = content.split("\n")
+        sentences = content.split("。")
         with open(vector_folder + 'sentences.pkl', 'wb') as f:
             pickle.dump(sentences, f)
         sentence_embeddings = model.encode(sentences)
@@ -69,14 +68,14 @@ def vector_search(question: str, top_k: int) -> str:
     if rel_zero_point not in matches[0]:
         for i in matches[0]:
             result += sentences[i].strip() + "。"
-            print(i, ' ', sentences[i].strip() + "。", " ——正相关数据")
+            print(i, ' ', sentences[i].strip(), " ——正相关数据")
     else:
         for i in matches[0]:
             if i != rel_zero_point:
                 result += sentences[i].strip() + "。"
-                print(i, ' ', sentences[i].strip() + "。", " ——正相关数据")
+                print(i, ' ', sentences[i].strip(), " ——正相关数据")
             else:
-                print(i, ' ', sentences[i].strip() + "。", " ——不相关数据")
+                print(i, ' ', sentences[i].strip(), " ——不相关数据")
                 break
     print("搜索结果为：", result)
     return result

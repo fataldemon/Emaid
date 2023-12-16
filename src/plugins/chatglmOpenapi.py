@@ -28,19 +28,6 @@ tools = [
             },
             "required": ['query']
         }
-    },
-    {
-        "name": "kivotos_info",
-        "description": "回忆起基沃托斯的世界观信息(包括千禧年学院、歌赫娜学院、圣三一学院、百鬼夜行学院、山海经学院等)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "school_name": {
-                    "description": "需要了解信息的基沃托斯学校名称（千禧年、歌赫娜、圣三一、百鬼夜行、山海经、红冬、瓦尔基丽警员、SRT、阿里乌斯与狂猎艺术）"
-                }
-            },
-            "required": ['city_name']
-        }
     }
 ]
 system_info = {"role": "system", "content": "Chat as best as you can. You have access to the following tools:", "tools": tools}

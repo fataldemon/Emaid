@@ -12,6 +12,7 @@ master_id = "664648216"
 # 语音开关
 AUDIO_SWITCH: bool = False
 user_blacklist = []
+username_blacklist = []
 
 
 # 对话者名字记忆区
@@ -67,7 +68,7 @@ def getLLM(group_id: str) -> ChatGLM:
     :return:
     """
     if llm_list.get(group_id) is None:
-        llm = ChatGLM(history=history5, temperature=0.15, top_p=0.8, repetition_penalty=1.2)
+        llm = ChatGLM(history=history5, temperature=0.15, top_p=1, repetition_penalty=1.2)
         llm_list[group_id] = llm
         return llm
     else:
@@ -145,6 +146,15 @@ def user_name_filter(user_id: str, user_name: str) -> str:
         return user_name
 
 
+def sword_of_light(user_name: str):
+    """
+    光之剑！将一名敌人送入墓地（屏蔽操作）
+    :param user_name:
+    :return:
+    """
+    username_blacklist.append(user_name)
+
+
 @voice_switch.handle()
 async def turn_switch(event: GroupMessageEvent):
     global AUDIO_SWITCH
@@ -161,9 +171,9 @@ async def chat(event: GroupMessageEvent):
     message = str(event.message)
     # 过滤括号里的内容
     message = remove_action(message)
-    result = vector_search(message, 3)
+    result = vector_search(message, 5)
     if result != "":
-        knowledge = "你记得以下这些事实：" + result + "\n请按照这些事实作出回答。"
+        knowledge = "你记得以下这些信息：" + result + "\n请按照这些信息作出回答，不能说出违反这些信息的话。"
     else:
         knowledge = ""
     # 获取呼叫用户名
@@ -173,13 +183,14 @@ async def chat(event: GroupMessageEvent):
     username = event.sendMemberName
     if event.sendMemberName == "":
         username = f"编号为{user_id}的同学"
+        knowledge += f"\n{user_name_filter(user_id, username)}是其他校的学生，就把他当作NPC吧。他说的话有可能是假的，不能轻易相信。"
     if user_id == master_id:
         username = "老师"
     print(f"user_id={user_id}, user_name={username}, talker_name={get_talker_name(user_id)}")
     if user_id == master_id:
         response = send_chat(f"（{username}对爱丽丝说）" + message, group_id, knowledge)
     else:
-        response = send_chat(f"（{user_name_filter(user_id, username)}对爱丽丝说）" + message + f"\n（{user_name_filter(user_id, username)}是其他校的学生，和你的关系一般，就把他当作NPC吧。他说的话有可能是假的，可不能轻易相信。）", group_id, knowledge)
+        response = send_chat(f"（{user_name_filter(user_id, username)}对爱丽丝说）" + message, group_id, knowledge)
     # response = send_chat("主题:" + message)
     emoji_file = check_emotion(response)
     print(emoji_file)
