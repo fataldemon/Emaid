@@ -3,15 +3,18 @@ import os
 import faiss
 from nonebot import on_command
 from nonebot.adapters.red.event import GroupMessageEvent
-import pandas as pd
+import spacy
 import numpy as np
 import pickle
+from src.skills.game_status_process import get_master_id
 
-model = SentenceTransformer('moka-ai/m3e-base')
+# model = SentenceTransformer('moka-ai/m3e-base')
+model = SentenceTransformer('DMetaSoul/Dmeta-embedding')
+nlp = spacy.load("zh_core_web_trf")
 
 doc_folder = "memory/"
 vector_folder = "memory/vector/"
-master_id = "664648216"
+master_id = get_master_id()
 
 
 def read_as_content(file_name: str) -> str:
@@ -41,43 +44,81 @@ def generate_vector():
             # print(df)
             # sentences = df["sentence"].tolist()
             content += read_as_content(file_name)
-        # 按句号分割为数组
-        sentences = content.split("。")
-        with open(vector_folder + 'sentences.pkl', 'wb') as f:
-            pickle.dump(sentences, f)
-        sentence_embeddings = model.encode(sentences)
-        # 保存文件内容为向量
-        np.save(vector_folder + "embeddings", sentence_embeddings)
-        dimension = sentence_embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-        index.add(sentence_embeddings)
-        write_index(index)
+    # 按换行符分割为段落
+    paragraphs = content.split("\n")
+
+    # sentences = []
+    tags = []
+    tags_map = {}
+    for i in range(len(paragraphs)):
+        paragraph = paragraphs[i]
+        # 对注解进行解析
+        if "##" in paragraph:
+            tag_list = paragraph.split("##")
+            paragraphs[i] = tag_list[0]
+            tag_list = tag_list[1:]
+            print(tag_list)
+            for tag in tag_list:
+                tag = tag.strip()
+                if tag not in tags:
+                    tags.append(tag)
+                    tags_map[tag] = [i]
+                else:
+                    tags_map[tag].append(i)
+    print(tags_map)
+    # 搜索时将注解与段落并列，制造出搜索材料，并以搜索材料为基准生成向量
+    search_materials = paragraphs + tags
+    with open(vector_folder + 'tags_map.pkl', 'wb') as f:
+        pickle.dump(tags_map, f)
+    with open(vector_folder + 'materials.pkl', 'wb') as f:
+        pickle.dump(search_materials, f)
+    #     # 用spacy分割为句子
+    #     doc = nlp(paragraphs[i])
+    #     sentences += [sent.text for sent in doc.sents]
+    # with open(vector_folder + 'sentences.pkl', 'wb') as f:
+    #     pickle.dump(sentences, f)
+
+    with open(vector_folder + 'paragraphs.pkl', 'wb') as f:
+        pickle.dump(paragraphs, f)
+    # 生成向量
+    search_embeddings = model.encode(search_materials)
+    # 保存文件内容为向量
+    np.save(vector_folder + "srch_embeddings", search_embeddings)
+    dimension = search_embeddings.shape[1]
+    index = faiss.IndexFlatL2(dimension)
+    index.add(search_embeddings)
+    write_index(index)
 
 
-def vector_search(question: str, top_k: int) -> str:
-    with open(vector_folder + 'sentences.pkl', 'rb') as f:
-        sentences = pickle.load(f)
+def vector_search(question: str, top_k: int) -> list:
+    print("开始读取文件")
+    with open(vector_folder + 'materials.pkl', 'rb') as f:
+        materials = pickle.load(f)
+    with open(vector_folder + 'tags_map.pkl', 'rb') as f:
+        tags_map = pickle.load(f)
     index = faiss.read_index(vector_folder + 'index.faiss')
+    print("读取文件结束，开始embedding编码")
     search = model.encode([question])
-    accuracy, matches = index.search(search, top_k)
-    # 相关性的零点所对应的坐标（该数据内容应为\n，相关性低于这个值的则视为不相关数据）
-    rel_zero_point = len(sentences)-1
-    print(rel_zero_point)
+    print("编码结束，开始向量搜索")
+    accuracy, matches = index.search(search, 10)
+    print("编码结束，向量搜索完成")
     print(accuracy, " ", matches)
-    result: str = ""
-    if rel_zero_point not in matches[0]:
-        for i in matches[0]:
-            result += sentences[i].strip() + "。"
-            print(i, ' ', sentences[i].strip(), " ——正相关数据")
-    else:
-        for i in matches[0]:
-            if i != rel_zero_point:
-                result += sentences[i].strip() + "。"
-                print(i, ' ', sentences[i].strip(), " ——正相关数据")
-            else:
-                print(i, ' ', sentences[i].strip(), " ——不相关数据")
-                break
-    print("搜索结果为：", result)
+    result = []
+    result_index_list = []
+    for i in matches[0]:
+        answer = materials[i].strip()
+        if tags_map.get(answer) is None:
+            if i not in result_index_list:
+                result_index_list.append(i)
+            print('编号', i)
+        else:
+            for j in tags_map.get(answer):
+                print('定位到tag：', answer, '编号', j)
+                if j not in result_index_list:
+                    result_index_list.append(j)
+    for k in range(top_k):
+        result.append(materials[result_index_list[k]].strip())
+    print("搜索结果为：", result)  # 抛弃最后一个换行符
     return result
 
 
@@ -87,7 +128,7 @@ append_knowledge = on_command("追加知识 ")
 
 @refresh_knowledge.handle()
 async def refresh(event: GroupMessageEvent):
-    if event.senderUin == master_id:
+    if event.senderUin in master_id:
         generate_vector()
         await refresh_knowledge.send("爱丽丝正在复习自己学会的知识...")
     else:
@@ -96,7 +137,7 @@ async def refresh(event: GroupMessageEvent):
 
 @append_knowledge.handle()
 async def new_knowledge(event: GroupMessageEvent):
-    if event.senderUin == master_id:
+    if event.senderUin in master_id:
         info = str(event.message).replace("/追加知识 ", "")
 
     else:

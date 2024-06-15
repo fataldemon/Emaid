@@ -5,8 +5,9 @@ import json
 from nonebot import on_command
 from nonebot.adapters.red.message import MessageSegment
 from nonebot.adapters.red.event import GroupMessageEvent
+from src.skills.game_status_process import get_master_id
 
-master_id = "664648216"
+master_id = get_master_id()
 
 painting_call = on_command("绘图 ")
 advanced_painting_call = on_command("高级绘图 ")
@@ -23,17 +24,22 @@ async def painting(event: GroupMessageEvent):
     positive_tags = str(event.message).replace("/绘图 ", "")
     print(positive_tags)
     group_id = event.group_id
-    if user_id == master_id or group_id == "739048999":
+    if user_id in master_id or group_id == "739048999" or group_id == "587663288":
         prompt = json.loads(prompt_text)
         # set the text prompt for our positive CLIPTextEncode
-        prompt["6"]["inputs"]["text"] = positive_tags
+        # prompt["6"]["inputs"]["text"] = f"{positive_tags}"
+        prompt["6"]["inputs"]["text"] = f"(score_9,score_8_up,score_7_up),{positive_tags}"
         # set the text prompt for our negative CLIPTextEncode
-        prompt["7"]["inputs"]["text"] = "aidxlv05_neg blurry, low contrast, {bad hands, bad feet}, lowres, ugly"
+        # prompt["7"]["inputs"]["text"] = "low contrast, bad hands, bad feet, lowres, ugly"
+        # prompt["7"]["inputs"]["text"] = "aidxlv05_neg blurry, low contrast, {bad hands, bad feet}, lowres, ugly, {nsfw}"
+        prompt["7"]["inputs"]["text"] = "(score_4,score_5,score_3,score_2,score_1),ugly"
 
         # set the seed for our KSampler node
         seeds = random.randint(0, 18446744073709551615)
         prompt["3"]["inputs"]["seed"] = seeds
-        prompt["4"]["inputs"]["ckpt_name"] = "animeIllustDiffusion_v052.safetensors"
+        # prompt["4"]["inputs"]["ckpt_name"] = "sd3_medium_incl_clips_t5xxlfp16.safetensors"
+        prompt["4"]["inputs"]["ckpt_name"] = "tPonynai3_v41OptimizedFromV4.safetensors"
+        prompt["3"]["inputs"]["steps"] = 25
 
         ws = websocket.WebSocket()
         ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
@@ -81,7 +87,7 @@ async def advanced_painting(event: GroupMessageEvent):
     格式如下：
     positive prompt: ... ; negative prompt: ... ; seeds: ... (-1时为random); size: height*width; model: model_name; steps:...; cfg:...; denoise:...; sampler: ...
     示例：
-    positive prompt: masterpiece best quality girl; negative prompt: aidxlv05_neg blurry, low contrast, {bad hands, bad feet}; seed: -1; size: 1024*1024; model: animeIllustDiffusion_v052.safetensors;
+    positive prompt: masterpiece, best quality, girl; negative prompt: aidxlv05_neg blurry, low contrast, {bad hands, bad feet}; seed: -1; size: 1024*1024; model: animeIllustDiffusion_v052.safetensors;
         steps:30; cfg:7; denoise:1; sampler: euler
     :param event:
     :return:
@@ -91,13 +97,13 @@ async def advanced_painting(event: GroupMessageEvent):
         await advanced_painting_call.send("""格式如下：
     positive prompt: ... ; negative prompt: ... ; seeds: ... (-1时为random); size: height*width; model: model_name; steps:...; cfg:...; denoise:...; sampler: ...
     示例：
-    positive prompt: masterpiece best quality girl; negative prompt: aidxlv05_neg blurry, low contrast, {bad hands, bad feet}; seeds: -1; size: 1024*1024; model: animeIllustDiffusion_v052.safetensors;
+    positive prompt: (score_9,score_8_up,score_7_up), masterpiece, best quality, girl; negative prompt: (score_4,score_5,score_3,score_2,score_1),ugly; seeds: -1; size: 1024*1024; model: tPonynai3_v41OptimizedFromV4.safetensors;
     steps:30; cfg:7; denoise:1; sampler: euler
-    model list: 'abyssorangemix3AOM3_aom3a1b.safetensors', 'animeIllustDiffusion_v052.safetensors', 'artErosAerosATribute_aerosNovae.safetensors', 'chilloutmix_NiPrunedFp32Fix.safetensors', 'furnace1011_furnace11.safetensors', 'furnace34_furnace34.safetensors', 'pastelMixStylizedAnime_pastelMixPrunedFP16.safetensors', 'sdXL_v10VAEFix.safetensors', 'tmndMix_tmndMixPlus.safetensors'""")
+    """)
     else:
         user_id = event.senderUin
         group_id = event.group_id
-        if user_id == master_id or group_id == "739048999":
+        if user_id in master_id or group_id == "739048999" or group_id == "313372316":
             params: dict = process_for_params(raw_message)
             print(params)
             if params.get("positive") is None:

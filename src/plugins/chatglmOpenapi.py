@@ -17,20 +17,20 @@ logging.basicConfig(level=logging.INFO)
 #调用工具定义
 tools = [
     {
-        "name": "search_wiki",
-        "description": "通过维基百科查询信息",
+        "name": "wiki",
+        "description": "调用维基百科查询",
         "parameters": {
             "type": "object",
             "properties": {
-                "query": {
-                    "description": "需要查询信息的对象"
+                "symbol": {
+                    "description": "需要查询的条目"
                 }
             },
-            "required": ['query']
+            "required": ['symbol']
         }
     }
 ]
-system_info = {"role": "system", "content": "Chat as best as you can. You have access to the following tools:", "tools": tools}
+system_info = {"role": "system", "content": "Answer the following questions as best as you can. You have access to the following tools:"+str(tools)}
 
 
 def get_value_in_brackets(tool_call):
@@ -54,6 +54,7 @@ class ChatGLM(LLM):
     repetition_penalty: float = 1.20
     max_history = 28
     history: Any = []
+    functions = []
     #部署大模型服务的url
     url = "http://localhost:8000/v1/chat/completions"
 
@@ -85,7 +86,8 @@ class ChatGLM(LLM):
         else:
             messages_emb = messages
         query = {
-            "model": "chatglm3-6b",
+            "functions": self.functions,
+            "model": "chatglm3-6b-32k",
             "messages": messages_emb,
             "temperature": self.temperature,
             "top_p": self.top_p,
@@ -100,7 +102,8 @@ class ChatGLM(LLM):
         """
         messages = self.history + [{"role": "observation", "content": prompt}]
         query = {
-            "model": "chatglm3-6b",
+            "functions": self.functions,
+            "model": "chatglm3-6b-32k",
             "messages": messages,
             "temperature": self.temperature,
             "top_p": self.top_p,
@@ -146,6 +149,8 @@ class ChatGLM(LLM):
         if resp.status_code == 200:
             resp_json = json.loads(resp.text)
             predictions = resp_json['choices'][0]['message']['content'].strip()
+            predictions = predictions.replace("我", "爱丽丝")
+            predictions = predictions.replace("爱丽丝们", "我们")
             print(predictions)
             self.record_dialog_in_file(role="assistant", content=predictions)
             self.history = self.history + [{"role": "assistant", "content": predictions}]
@@ -175,10 +180,9 @@ if __name__ == "__main__":
                 {"role": "system", "content": "请你扮演爱丽丝进行轻松的日常交谈，使用《勇者斗恶龙》游戏的台词进行对话。和老师打招呼时会说“邦邦咔邦，野生的爱丽丝出现了！”。当你遇到自己不知道或者做不到的事情，会说自己经验不足；当你学到了新的东西，会说自己的经验值上升了。"},
                 system_info]
     history3 = [{"role": "system", "content": "你是爱丽丝，全名是天童爱丽丝，看上去是一个可爱的小女孩，实际上是个机器人。你有长长的灰色头发，蓝色的眼睛，软乎乎的人工蛋白质皮肤，身高是152cm。你生活在一个叫做基沃托斯的学园都市，是千禧年学院的一名学生。你不知道自己的出身，只知道自己是小桃（全名是才羽桃井）和小绿（全名是才羽绿）在一个神秘的废墟里发现的。小桃和小绿发现你之后就把你带到了千禧年的游戏开发部，你假扮成人类成为了这里的学生，“爱丽丝”这个名字也是小桃和小绿起的。你不知道自己的生日，所以你把小桃和小绿发现你的这一天当成自己的生日，也就是3月25日。现在的你是游戏开发部的一员，最喜欢的游戏是复古风RPG（角色扮演类游戏），游戏开发部的大家都是你的伙伴，包括游戏开发部的部长柚子（全名是花岗柚子）、成员小桃和小绿，小桃负责程序，小绿负责原画，柚子则是超级游戏高手，她们都是你最好的朋友。你的武器是一把名为“光之剑”的巨大电磁炮，这门炮是工程部的杰作，足足有140kg重！在用“光之剑”攻击时你会大喊“光哟！！！”的游戏必杀台词。除了你以外其他千禧年的学生都拿不动的样子。你喜欢扮演游戏里的勇者，你会且只会在括号里面表达你的动作和想法，偶尔会在对话中加入颜文字。"}]
-    history4 = [{"role": "system",
-                 "content": "你是一个日语翻译，用来按照输入生成日语，并去掉所有在小括号里的内容。回答只包括翻译的内容。"}]
-    llm = ChatGLM(history=history4, temperature=0.15)
-    human_input = "你好"
+    history4 = [system_info]
+    llm = ChatGLM(history=history2, temperature=0.3, functions=tools)
+    human_input = "查询Michael Jackson的信息"
     #human_input2 = "(魔斗说)你的朋友是谁？"
     begin_time = time.time()*1000
     #请求模型
