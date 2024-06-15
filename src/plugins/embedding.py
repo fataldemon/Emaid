@@ -118,7 +118,7 @@ def vector_search(question: str, top_k: int) -> list:
                     result_index_list.append(j)
     for k in range(top_k):
         result.append(materials[result_index_list[k]].strip())
-    print("搜索结果为：", result)  # 抛弃最后一个换行符
+    # print("搜索结果为：", result)  # 抛弃最后一个换行符
     return result
 
 

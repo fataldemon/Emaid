@@ -304,7 +304,9 @@ class Qwen(LLM):
                         self.history = self.history[-self.max_history:]
                 print(f"历史长度：{len(self.history)}")
                 # 针对大模型回答搜索知识库
-                self.embedding_buffer = embedding + vector_search(predictions, 3)
+                self.embedding_buffer = embedding
+                self.embedding_buffer = self.process_embedding(vector_search(predictions, 3))
+                print(f"Length of Embedding_buffer: {len(self.embedding_buffer)}")
                 return thought, predictions, "", finish_reason
         else:
             return "", "请求失败", "", ""
