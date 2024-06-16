@@ -50,8 +50,11 @@ def search_for_item() -> str:
 async def search_on_internet(item: str) -> str:
     raw_info = await online_search_func(item)
     info = f"（爱丽丝在网络上对〖{item}〗词条进行了一番搜索，得到了一些信息）{raw_info}"
-    print(raw_info)
-    return info
+    if raw_info != "":
+        print(raw_info)
+        return info
+    else:
+        return f"（爱丽丝在网络上对〖{item}〗词条进行了一番搜索，但是由于网络问题什么都没能找到。也许之后再试试吧。）"
 
 
 if __name__ == "__main__":

@@ -158,6 +158,7 @@ unblack_list = on_command("unblacklist ")
 set_scene = on_command("goto")
 clear_death_zone = on_command("重置墓地")
 donation = on_command("给你钱", rule=_checker, priority=1, block=False)
+conclude_summary = on_command("总结历史")
 # group_message = on_message(rule=_none_checker, priority=1, block=False)
 
 
@@ -185,6 +186,16 @@ async def send_to_assistant(prompt: str, group_id: str) -> tuple:
     result = await llm.call_assistant(prompt, stop=None)
     return result
 
+
+async def get_summary(group_id: str) -> str:
+    """
+    总结当前对话
+    :param group_id:群组ID
+    :return:
+    """
+    llm = getLLM(group_id)
+    summary = await llm.conclude_summary()
+    return summary
 
 async def send_feedback(feedback: str, group_id: str) -> tuple:
     """
@@ -450,15 +461,17 @@ async def chat(event: GroupMessageEvent):
                 await group_chatter.send(MessageSegment.voice(voice_file_name))
         else:
             await group_chatter.send("...")
-    if feedback != "":
-        if "（爱丽丝在网络上对〖" in feedback and "〗词条进行了一番搜索，得到了一些信息）" in feedback:
-            locator_left = feedback.rfind("〖")
-            locator_right = feedback.rfind("〗")
-            subject = feedback[locator_left+1:locator_right]
-            web_summary = await send_to_assistant(feedback+f"\n\n在150字以内总结上面关于\"{subject}\"的搜索结果：", group_id)
-            feedback = f"（爱丽丝在网络上对\"{subject}\"进行了一番搜索，得到了下面的信息）{web_summary}"
-        await group_chatter.send(f"System<{feedback}>")
+
     while finish_reason == "function_call":
+        if feedback != "":
+            if "（爱丽丝在网络上对〖" in feedback and "〗词条进行了一番搜索，得到了一些信息）" in feedback:
+                locator_left = feedback.rfind("〖")
+                locator_right = feedback.rfind("〗")
+                subject = feedback[locator_left + 1:locator_right]
+                web_summary = await send_to_assistant(feedback + f"\n\n在150字以内总结上面关于\"{subject}\"的搜索结果：",
+                                                      group_id)
+                feedback = f"（爱丽丝在网络上对\"{subject}\"进行了一番搜索，得到了下面的信息）{web_summary}"
+            await group_chatter.send(f"System<{feedback}>")
         thought, response, feedback, finish_reason = await send_feedback(feedback, group_id)
         print(f"Thought: {thought}")
         emoji_file = check_emotion(response)
@@ -564,3 +577,10 @@ async def assistant_reply(event: GroupMessageEvent):
     content = str(event.message).replace("/助手 ", "")
     reply = await send_to_assistant(content, group_id)
     await assistant.send(reply)
+
+
+@conclude_summary.handle()
+async def do_summary(event: GroupMessageEvent):
+    group_id = event.group_id
+    summary = await get_summary(group_id)
+    await conclude_summary.send(f"System<（目前的对话总结：\n{summary}）>")

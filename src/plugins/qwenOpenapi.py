@@ -8,13 +8,11 @@ from datetime import datetime
 from src.plugins.function_call import skill_call
 from src.plugins.embedding import vector_search
 
-
 from langchain.llms.base import LLM
 
 logging.basicConfig(level=logging.INFO)
 
-
-#调用工具定义
+# 调用工具定义
 tools = [
     {
         'name_for_human': '光之剑',
@@ -44,6 +42,7 @@ tools = [
     }
 ]
 
+
 def get_value_in_brackets(tool_call):
     pattern = r'\((.*?)\)'
     match = re.search(pattern, tool_call)
@@ -67,8 +66,9 @@ class Qwen(LLM):
     max_history = 20
     embedding_buffer = []
     history: Any = []
+    summary = ""
     functions = []
-    #部署大模型服务的url
+    # 部署大模型服务的url
     url = "http://localhost:8000/v1/chat/completions"
     url_assistant = "http://localhost:8000/v1/assistant/completions"
 
@@ -83,10 +83,9 @@ class Qwen(LLM):
         with open(file, 'a', encoding='utf-8') as f:
             f.write(
                 '''{
-                "role": "'''+role+'''",
-                "content": "'''+content+'''"
+                "role": "''' + role + '''",
+                "content": "''' + content + '''"
             },\n''')
-
 
     def process_embedding(self, embedding) -> list:
         embedding_processed = []
@@ -153,7 +152,7 @@ class Qwen(LLM):
             "model": "gpt-3.5-turbo",
             "messages": messages,
             "embeddings": "",
-            "temperature": 0.5,
+            "temperature": 0.95,
             "top_p": 0.15,
             "stream": False,  # 不启用流式API
         }
@@ -246,6 +245,20 @@ class Qwen(LLM):
         else:
             return "请求失败"
 
+    async def conclude_summary(self) -> str:
+        if self.summary != "":
+            summary_temp = self.summary
+        else:
+            summary_temp = "无"
+
+        dialog_history = ""
+        for conversation in self.history:
+            dialog_history += conversation["content"] + "\n"
+
+        summary_prompt = f"前情提要：{summary_temp}\n\n对话历史：{dialog_history}\n\n" \
+                         f"综合上面的前情提要和对话历史中的剧情，在150字内为爱丽丝总结成简短的记忆概要，要求尽量保留对话历史中的重要的信息，并且反映最近的进展："
+        self.summary = await self.call_assistant(summary_prompt)
+        return self.summary
 
     async def call_with_function(self, prompt: str, stop: Optional[List[str]] = None, **kwargs) -> tuple:
         """调用函数
@@ -280,28 +293,47 @@ class Qwen(LLM):
                     feedback = "（不合法的输入参数）"
                 if predictions != "":
                     if thought != "":
-                        self.history = self.history + [{"role": "assistant", "content": f"Thought: {thought}\nAnswer: {predictions}\nAction: {action_name}\nAction Input: {action_input}"}]
+                        self.history = self.history + [{"role": "assistant",
+                                                        "content": f"Thought: {thought}\nAnswer: {predictions}\nAction: {action_name}\nAction Input: {action_input}"}]
                     else:
-                        self.history = self.history + [{"role": "assistant", "content": f"Answer: {predictions}\nAction: {action_name}\nAction Input: {action_input}"}]
+                        self.history = self.history + [{"role": "assistant",
+                                                        "content": f"Answer: {predictions}\nAction: {action_name}\nAction Input: {action_input}"}]
                 else:
-                    self.history = self.history + [{"role": "assistant", "content": f"Thought: {thought}\nAction: {action_name}\nAction Input: {action_input}"}]
+                    self.history = self.history + [{"role": "assistant",
+                                                    "content": f"Thought: {thought}\nAction: {action_name}\nAction Input: {action_input}"}]
                 if len(self.history) > self.max_history:
-                    temp_history = self.history[-self.max_history:]
-                    print("test: " + str(temp_history[0]))
-                    if temp_history[0].get("role") != "function":
-                        self.history = self.history[-self.max_history:]
+                    await self.conclude_summary()
+                    print(f"历史总结：{self.summary}")
+                    # temp_history = self.history[-self.max_history:]
+                    int_index = 2
+                    while self.history[-int_index]["role"] != "user":
+                        int_index += 2
+                    user_content = self.history[-int_index:][0]["content"]
+                    temp_history = [{"role": "user",
+                                     "content": f"{self.summary}\n{user_content}"}] + self.history[-int_index + 1:]
+                    self.history = temp_history
+                    print("Head of history: " + str(temp_history[0]))
                 print(f"历史长度：{len(self.history)}")
                 return thought, predictions, feedback, finish_reason
             else:
                 predictions = resp_json['choices'][0]['message']['content'].strip()
                 thought = resp_json['choices'][0]['thought'].strip()
                 self.record_dialog_in_file(role="assistant", content=f"Thought: {thought}\nFinal Answer: {predictions}")
-                self.history = self.history + [{"role": "assistant", "content": f"Thought: {thought}\nFinal Answer: {predictions}"}]
+                self.history = self.history + [
+                    {"role": "assistant", "content": f"Thought: {thought}\nFinal Answer: {predictions}"}]
                 if len(self.history) > self.max_history:
-                    temp_history = self.history[-self.max_history:]
-                    print("test: " + str(temp_history[0]))
-                    if temp_history[0].get("role") != "function":
-                        self.history = self.history[-self.max_history:]
+                    await self.conclude_summary()
+                    print(f"历史总结：{self.summary}")
+                    # temp_history = self.history[-self.max_history:]
+                    int_index = 2
+                    while self.history[-int_index]["role"] != "user":
+                        int_index += 2
+                    user_content = self.history[-int_index:][0]["content"]
+                    temp_history = [{"role": "user",
+                                     "content": f"{self.summary}\n{user_content}"}] + self.history[-int_index + 1:]
+                    self.history = temp_history
+                    print("Head of history: " + str(temp_history[0]))
+
                 print(f"历史长度：{len(self.history)}")
                 # 针对大模型回答搜索知识库
                 self.embedding_buffer = embedding
@@ -332,10 +364,17 @@ class Qwen(LLM):
                     self.history = self.history + [{"role": "assistant",
                                                     "content": f"Thought: {thought}\nAction: {action_name}\nAction Input: {action_input}"}]
                 if len(self.history) > self.max_history:
-                    temp_history = self.history[-self.max_history:]
-                    print("test: " + str(temp_history[0]))
-                    if temp_history[0].get("role") != "function":
-                        self.history = self.history[-self.max_history:]
+                    await self.conclude_summary()
+                    print(f"历史总结：{self.summary}")
+                    # temp_history = self.history[-self.max_history:]
+                    int_index = 2
+                    while self.history[-int_index]["role"] != "user":
+                        int_index += 2
+                    user_content = self.history[-int_index:][0]["content"]
+                    temp_history = [{"role": "user",
+                                     "content": f"{self.summary}\n{user_content}"}] + self.history[-int_index + 1:]
+                    self.history = temp_history
+                    print("Head of history: " + str(temp_history[0]))
                 print(f"历史长度：{len(self.history)}")
                 return thought, predictions, feedback, finish_reason
             else:
@@ -345,10 +384,18 @@ class Qwen(LLM):
                 self.history = self.history + [
                     {"role": "assistant", "content": f"Thought: {thought}\nFinal Answer: {predictions}"}]
                 if len(self.history) > self.max_history:
-                    temp_history = self.history[-self.max_history:]
-                    print("test: " + str(temp_history[0]))
-                    if temp_history[0].get("role") != "function":
-                        self.history = self.history[-self.max_history:]
+                    await self.conclude_summary()
+                    print(f"历史总结：{self.summary}")
+                    # temp_history = self.history[-self.max_history:]
+                    int_index = 2
+                    while self.history[-int_index]["role"] != "user":
+                        int_index += 2
+                    user_content = self.history[-int_index:][0]["content"]
+                    temp_history = [{"role": "user",
+                                     "content": f"{self.summary}\n{user_content}"}] + self.history[-int_index + 1:]
+                    self.history = temp_history
+                    print("Head of history: " + str(temp_history[0]))
+
                 print(f"历史长度：{len(self.history)}")
                 return thought, predictions, "", finish_reason
         else:
@@ -375,8 +422,8 @@ if __name__ == "__main__":
     human_input2 = "有哥布林出现了，快消灭它！"
     human_input3 = "今天去公园玩吧"
     # human_input4 = "那就出发"
-    begin_time = time.time()*1000
-    #请求模型
+    begin_time = time.time() * 1000
+    # 请求模型
     response = llm(human_input, stop=None)
     print(f"{response}")
     print(llm.history)
