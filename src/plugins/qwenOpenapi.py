@@ -256,7 +256,7 @@ class Qwen(LLM):
             dialog_history += conversation["content"] + "\n"
 
         summary_prompt = f"前情提要：{summary_temp}\n\n对话历史：{dialog_history}\n\n" \
-                         f"综合上面的前情提要和对话历史中的剧情，在150字内为爱丽丝总结成简短的记忆概要，要求尽量保留对话历史中的重要的信息，并且反映最近的进展："
+                         f"综合上面的前情提要和对话历史中的剧情，在150字内为爱丽丝总结成简短的记忆概要，要求尽量忠实地保留对话历史中的重要信息，并且反映最近的进展："
         self.summary = await self.call_assistant(summary_prompt)
         return self.summary
 

@@ -97,7 +97,7 @@ def getLLM(group_id: str) -> ChatGLM:
     if llm_list.get(group_id) is None:
         # llm = ChatGLM(history=history6, temperature=0.6, top_p=0.5, repetition_penalty=1.2)
         # llm = Qwen(temperature=0.95, top_p=0.7, functions=tools, repetition_penalty=1.10, max_history=12)
-        llm = Qwen(temperature=0.95, top_p=0.4, functions=tools, repetition_penalty=1.10, max_history=12)
+        llm = Qwen(temperature=0.92, top_p=0.5, functions=tools, max_history=16)
         llm_list[group_id] = llm
         return llm
     else:
